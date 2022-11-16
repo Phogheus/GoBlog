@@ -1,8 +1,8 @@
 package goblog_data
 
 import (
+	"fmt"
 	"testing"
-	"time"
 )
 
 func TestBlogPostLifecycle(t *testing.T) {
@@ -17,6 +17,40 @@ func TestBlogPostLifecycle(t *testing.T) {
 	testUpdateBlogPost(t, newPost)
 
 	testDeleteBlogPostById(t, newPost.Id)
+}
+
+func TestInvalidCreateNewBlogPost(t *testing.T) {
+	var newPost BlogPost = BlogPost{}
+
+	newPostSuccess, _ := CreateNewBlogPost(newPost)
+
+	if newPostSuccess {
+		t.Fatal("Create was successful and should not have been.")
+	}
+
+	newPost.Author = "Me"
+
+	newPostSuccess, _ = CreateNewBlogPost(newPost)
+
+	if newPostSuccess {
+		t.Fatal("Create was successful and should not have been.")
+	}
+
+	newPost.Title = "A title"
+
+	newPostSuccess, _ = CreateNewBlogPost(newPost)
+
+	if newPostSuccess {
+		t.Fatal("Create was successful and should not have been.")
+	}
+
+	newPost.Body = "Some body text"
+
+	newPostSuccess, _ = CreateNewBlogPost(newPost)
+
+	if !newPostSuccess {
+		t.Fatal("Create was unsuccessful and should have been.")
+	}
 }
 
 func TestGetBlogPostByInvalidId(t *testing.T) {
@@ -46,13 +80,53 @@ func TestDeleteBlogPostByInvalidId(t *testing.T) {
 	}
 }
 
+func TestInvalidDbConnections(t *testing.T) {
+	tempConnString := connectionString
+	connectionString = fmt.Sprintf(CONNECTION_STRING_FORMAT, "garbageuser", "garbagepass", "127.0.0.1", 9999, "garbage")
+
+	defer setConnectionString(tempConnString)
+
+	var newPost BlogPost = BlogPost{
+		Author: "Me",
+		Title:  "My test post",
+		Body:   "This is my post. There are many like it, but this one is mine.",
+	}
+
+	newPostSuccess, _ := CreateNewBlogPost(newPost)
+
+	if newPostSuccess {
+		t.Fatal("Create was successful and should not have been.")
+	}
+
+	getPostById := GetBlogPostById(1)
+
+	if getPostById.Id != -1 {
+		t.Fatal("Get was successful and should not have been.")
+	}
+
+	updateSuccessful := UpdateBlogPost(newPost)
+
+	if updateSuccessful {
+		t.Fatal("Update was successful and should not have been.")
+	}
+
+	deleteSuccessful := DeleteBlogPostById(1)
+
+	if deleteSuccessful {
+		t.Fatal("Delete was successful and should not have been.")
+	}
+}
+
+func setConnectionString(str string) {
+	connectionString = str
+}
+
 func testCreateNewBlogPost(t *testing.T) BlogPost {
 	var newPost BlogPost = BlogPost{
-		Id:         999, // Setting this directly tests that doing so does not affect the Id chosen during create/add
-		Author:     "Me",
-		DatePosted: time.Now(),
-		Title:      "My test post",
-		Body:       "This is my post. There are many like it, but this one is mine.",
+		Id:     999, // Setting this directly tests that doing so does not affect the Id chosen during create/add
+		Author: "Me",
+		Title:  "My test post",
+		Body:   "This is my post. There are many like it, but this one is mine.",
 	}
 
 	newPostSuccess, newPostId := CreateNewBlogPost(newPost)

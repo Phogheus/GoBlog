@@ -1,0 +1,12 @@
+USE GoBlog;
+
+DROP TABLE IF EXISTS BlogPosts;
+
+CREATE TABLE BlogPosts (
+    Id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    Author TEXT NOT NULL,
+    DatePosted TEXT NOT NULL,
+    DateLastUpdated TEXT NULL,
+    Title TEXT NOT NULL,
+    Body TEXT NOT NULL
+);

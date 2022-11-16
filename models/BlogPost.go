@@ -1,4 +1,4 @@
-package goblog_data
+package models
 
 import "time"
 

@@ -10,45 +10,55 @@ import (
 	"github.com/spf13/viper"
 )
 
-const TIME_FORMAT string = "02-01-2006 15:04:05"
+const (
+	TIME_FORMAT              string = "02-01-2006 15:04:05"
+	CONNECTION_STRING_FORMAT string = "%v:%v@tcp(%v:%d)/%v"
 
-var dataStore = make(map[int]BlogPost)
+	FAILED_TO_LOAD_CONFIG_ERROR          string = "Failed to load configuration."
+	FAILED_TO_CONNECT_TO_DB_ERROR_FORMAT string = "Failed to connect to database with error: %v"
+
+	INSERT_BLOG_POST_QUERY         string = "call InsertNewBlogPost(?, ?, ?, ?)"
+	INSERT_BLOG_POST_FAILED_FORMAT string = "Call to InsertNewBlogPost failed with error: %v"
+
+	SELECT_BLOG_POST_QUERY         string = "SELECT * FROM BlogPosts WHERE Id = ?"
+	SELECT_BLOG_POST_FAILED_FORMAT string = "Call to GetBlogPostById failed with error: %v"
+
+	UPDATE_BLOG_POST_QUERY         string = "call UpdateBlogPost(?, ?, ?, ?)"
+	UPDATE_BLOG_POST_FAILED_FORMAT string = "Call to UpdateBlogPost failed with error: %v"
+
+	DELETE_BLOG_POST_QUERY         string = "DELETE FROM BlogPosts WHERE Id = ?"
+	DELETE_BLOG_POST_FAILED_FORMAT string = "Call to DeleteBlogPostById failed with error: %v"
+)
+
 var connectionString string
 
 func CreateNewBlogPost(post BlogPost) (bool, int) {
 	var insertSuccessful bool
 	nextId := -1
 
-	if !validateBlogPost(post) {
+	if post.Author == "" || post.Title == "" || post.Body == "" {
 		return insertSuccessful, nextId
 	}
 
 	db, dbConnected := getDbConnection()
 	defer db.Close()
 
-    if !dbConnected {
-		return insertSuccessful, nextId
-    }
-
-	rows, err := db.Query("call InsertNewBlogPost(?, ?, ?, ?)", post.Author, time.Now().UTC().Format(TIME_FORMAT), post.Title, post.Body)
-	defer rows.Close();
-
-	if err != nil {
-		log.Printf("Call to InsertNewBlogPost failed with error: %v", err)
+	if !dbConnected {
 		return insertSuccessful, nextId
 	}
 
-	if rows.Next() {
-		err := rows.Scan(&nextId)
+	result, err := db.Exec(INSERT_BLOG_POST_QUERY, post.Author, time.Now().UTC().Format(TIME_FORMAT), post.Title, post.Body)
 
-		if err != nil {
-			log.Printf("Scan of returned value failed with error: %v", err)
-			nextId = -1
-		} else {
-			insertSuccessful = true
-		}
-	} else {
-		log.Println("Failed to insert new blog post (no id returned).")
+	if err != nil {
+		log.Printf(INSERT_BLOG_POST_FAILED_FORMAT, err)
+		return insertSuccessful, nextId
+	}
+
+	lastInsertId, _ := result.LastInsertId()
+
+	if lastInsertId >= 0 {
+		insertSuccessful = true
+		nextId = int(lastInsertId)
 	}
 
 	return insertSuccessful, nextId
@@ -61,15 +71,15 @@ func GetBlogPostById(id int) BlogPost {
 	db, dbConnected := getDbConnection()
 	defer db.Close()
 
-    if !dbConnected {
+	if !dbConnected {
 		return post
-    }
+	}
 
-	rows, err := db.Query("SELECT * FROM BlogPosts WHERE Id = ?", id)
-	defer rows.Close();
+	rows, err := db.Query(SELECT_BLOG_POST_QUERY, id)
+	defer rows.Close()
 
 	if err != nil {
-		log.Printf("Call to GetBlogPostById failed with error: %v", err)
+		log.Printf(SELECT_BLOG_POST_FAILED_FORMAT, err)
 		return post
 	}
 
@@ -80,7 +90,7 @@ func GetBlogPostById(id int) BlogPost {
 		err := rows.Scan(&post.Id, &post.Author, &datePostTimeString, &dateLastUpdatedString, &post.Title, &post.Body)
 
 		if err != nil {
-			log.Printf("Scan of returned value failed with error: %v", err)
+			log.Printf(SELECT_BLOG_POST_FAILED_FORMAT, err)
 		} else {
 			datePostTime, err := time.Parse(TIME_FORMAT, datePostTimeString)
 
@@ -107,15 +117,15 @@ func UpdateBlogPost(post BlogPost) bool {
 	db, dbConnected := getDbConnection()
 	defer db.Close()
 
-    if !dbConnected {
+	if !dbConnected {
 		return updateSuccessful
-    }
+	}
 
-	result, err := db.Exec("call UpdateBlogPost(?, ?, ?, ?)", post.Id, time.Now().UTC().Format(TIME_FORMAT), post.Title, post.Body)
+	result, err := db.Exec(UPDATE_BLOG_POST_QUERY, post.Id, time.Now().UTC().Format(TIME_FORMAT), post.Title, post.Body)
 	count, err := result.RowsAffected()
 
 	if err != nil {
-		log.Printf("Call to UpdateBlogPost failed with error: %v", err)
+		log.Printf(UPDATE_BLOG_POST_FAILED_FORMAT, err)
 	} else {
 		updateSuccessful = count > 0
 	}
@@ -129,15 +139,15 @@ func DeleteBlogPostById(id int) bool {
 	db, dbConnected := getDbConnection()
 	defer db.Close()
 
-    if !dbConnected {
+	if !dbConnected {
 		return deleteSuccessful
-    }
+	}
 
-	result, err := db.Exec("DELETE FROM BlogPosts WHERE Id = ?", id)
+	result, err := db.Exec(DELETE_BLOG_POST_QUERY, id)
 	count, err := result.RowsAffected()
 
 	if err != nil {
-		log.Printf("Call to DeleteBlogPostById failed with error: %v", err)
+		log.Printf(DELETE_BLOG_POST_FAILED_FORMAT, err)
 	} else {
 		deleteSuccessful = count > 0
 	}
@@ -152,37 +162,23 @@ func init() {
 	err := viper.ReadInConfig()
 
 	if err != nil {
-		log.Fatal("Failed to load configuration.")
-    }
+		log.Fatal(FAILED_TO_LOAD_CONFIG_ERROR)
+	}
 
 	user := viper.GetString("db_user")
 	pass := viper.GetString("db_pass")
 	host := viper.GetString("db_host")
 	port := viper.GetInt("db_port")
 	entry := viper.GetString("entry_database")
-	connectionString = fmt.Sprintf("%v:%v@tcp(%v:%d)/%v", user, pass, host, port, entry)
-}
-
-func validateBlogPost(post BlogPost) bool {
-	isValid := true
-
-	if post.Author == "" || post.Title == "" || post.Body == "" {
-		isValid = false
-	}
-
-	if !isValid {
-		log.Print("Attempted to post invalid BlogPost")
-	}
-
-	return isValid
+	connectionString = fmt.Sprintf(CONNECTION_STRING_FORMAT, user, pass, host, port, entry)
 }
 
 func getDbConnection() (*sql.DB, bool) {
 	db, err := sql.Open("mysql", connectionString)
-	
-    if err != nil {
-		log.Printf("Failed to connect to database with error: %v", err)
-    }
+
+	if err != nil {
+		log.Printf(FAILED_TO_CONNECT_TO_DB_ERROR_FORMAT, err)
+	}
 
 	return db, err == nil
 }

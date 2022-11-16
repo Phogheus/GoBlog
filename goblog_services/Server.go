@@ -13,12 +13,12 @@ type ErrorResponse struct {
 }
 
 type HealthResponse struct {
-	Code int
+	Code   int
 	Status string
 }
 
 var (
-	BadPathError ErrorResponse = ErrorResponse{"Bad path."}
+	BadPathError   ErrorResponse = ErrorResponse{"Bad path."}
 	BadMethodError ErrorResponse = ErrorResponse{"Bad method."}
 )
 
@@ -47,16 +47,16 @@ func HandleRequests(writer http.ResponseWriter, request *http.Request) {
 // Discovered at https://benhoyt.com/writings/go-routing/#shiftpath
 // Original source at https://blog.merovius.de/posts/2017-06-18-how-not-to-use-an-http-router/
 func ShiftPath(p string) (head, tail string) {
-    p = path.Clean("/" + p) // Prepend "/" to 'p' and clean - Clean will ensure proper formatting, allowing a "//" to become "/"
-    i := strings.Index(p[1:], "/") + 1 // Find the next index of "/" after the prepended one (the trail)
+	p = path.Clean("/" + p)            // Prepend "/" to 'p' and clean - Clean will ensure proper formatting, allowing a "//" to become "/"
+	i := strings.Index(p[1:], "/") + 1 // Find the next index of "/" after the prepended one (the trail)
 
 	// If index is <= 0, there is no further trail
-    if i <= 0 {
-        return p[1:], "/"
-    }
+	if i <= 0 {
+		return p[1:], "/"
+	}
 
 	// Slice path into head and trail (the rest)
-    return p[1:i], p[i:]
+	return p[1:i], p[i:]
 }
 
 func serveHomePage(writer http.ResponseWriter) {

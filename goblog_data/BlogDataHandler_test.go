@@ -47,12 +47,12 @@ func TestDeleteBlogPostByInvalidId(t *testing.T) {
 }
 
 func testCreateNewBlogPost(t *testing.T) BlogPost {
-	var newPost BlogPost = BlogPost {
-		Id: 999, // Setting this directly tests that doing so does not affect the Id chosen during create/add
-		Author: "Me",
+	var newPost BlogPost = BlogPost{
+		Id:         999, // Setting this directly tests that doing so does not affect the Id chosen during create/add
+		Author:     "Me",
 		DatePosted: time.Now(),
-		Title: "My test post",
-		Body: "This is my post. There are many like it, but this one is mine.",
+		Title:      "My test post",
+		Body:       "This is my post. There are many like it, but this one is mine.",
 	}
 
 	newPostSuccess, newPostId := CreateNewBlogPost(newPost)
@@ -102,7 +102,7 @@ func testDeleteBlogPostById(t *testing.T, id int) {
 
 	getPostById := GetBlogPostById(id)
 
-	if (getPostById.Id != -1) {
+	if getPostById.Id != -1 {
 		t.Fatal("Delete failed")
 	}
 }
